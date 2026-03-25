@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=65", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "efficient-slam"
+version = "0.1.0"
+description = "Public LeanGate checkpoint and RGB-list generation utilities for TUM, 7Scenes, and EuRoC."
+authors = [{ name = "Efficient-SLAM Team" }]
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+dependencies = [
+  "numpy>=1.24",
+  "pyyaml>=6",
+  "huggingface_hub>=0.22",
+  "tqdm>=4.65",
+  "scipy>=1.10",
+  "opencv-python-headless>=4.8",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=7",
+  "ruff>=0.5",
+]
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+packages = { find = { where = ["src"], include = ["evaluate", "evaluate.*", "student", "student.*", "slam_prefilter", "slam_prefilter.*"] } }
+
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
