@@ -6,8 +6,6 @@ import sys
 from pathlib import Path
 
 from evaluate.public_config import (
-    FLARE_GEOMETRY_CHECKPOINT_PATH,
-    FLARE_GEOMETRY_CHECKPOINT_URL,
     LEANGATE_CHECKPOINT_FILENAME,
     LEANGATE_HF_FILENAME,
     LEANGATE_HF_REPO,
@@ -70,7 +68,7 @@ def _download_leangate_checkpoint(output_root: Path, repo_id: str | None = None)
 
 def run(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Download the public LeanGate checkpoint and verify the FLARE geometry checkpoint."
+        description="Download the public LeanGate checkpoint."
     )
     parser.add_argument(
         "--output-root",
@@ -93,19 +91,7 @@ def run(argv: list[str] | None = None) -> int:
         return 1
 
     print(f"[ok] LeanGate checkpoint: {leangate_path}")
-
-    if not FLARE_GEOMETRY_CHECKPOINT_PATH.exists():
-        print(
-            "[error] Missing FLARE geometry checkpoint.\n"
-            f"Expected: {FLARE_GEOMETRY_CHECKPOINT_PATH}\n"
-            "Download it from the official FLARE source:\n"
-            f"  {FLARE_GEOMETRY_CHECKPOINT_URL}",
-            file=sys.stderr,
-        )
-        return 1
-
-    print(f"[ok] FLARE geometry checkpoint: {FLARE_GEOMETRY_CHECKPOINT_PATH}")
-    print("[done] Public inference checkpoints are ready.")
+    print("[done] LeanGate checkpoint is ready.")
     return 0
 
 

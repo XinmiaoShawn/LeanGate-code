@@ -86,20 +86,9 @@ Download it with:
 python3 scripts/download_checkpoints.py --output-root checkpoints --repo-id ShawnX98/LeanGate
 ```
 
-You also need FLARE's `geometry_pose.pth` at:
-
-```text
-third_party/FLARE/checkpoints/geometry_pose.pth
-```
-
-Official FLARE source:
-
-- `https://huggingface.co/AntResearch/FLARE/resolve/main/geometry_pose.pth`
-
 Checkpoint notes:
 - The public LeanGate file is expected locally as `checkpoints/leangate.pt`.
-- `scripts/generate_rgb_lists.py` loads `leangate.pt` directly; the released setup does not require separate `iter` or `dec` flags.
-- FLARE's geometry checkpoint is not mirrored by this repo.
+- `scripts/generate_rgb_lists.py` uses `leangate.pt` directly as the initialization source; the released setup does not require separate `iter` or `dec` flags.
 - LeanGate uses FLARE pretrain weights, which follow FLARE's upstream terms.
 - MASt3R-SLAM code and any weights used with it follow MASt3R-SLAM's upstream terms.
 
@@ -160,7 +149,6 @@ MASt3R-SLAM wrapper:
 
 ## Troubleshooting
 - If `leangate.pt` is missing, run `python3 scripts/download_checkpoints.py --output-root checkpoints --repo-id ShawnX98/LeanGate`.
-- If `geometry_pose.pth` is missing, download it from the official FLARE URL above.
 - If scene discovery fails, the dataset layout likely does not match [docs/dataset_layouts.md](docs/dataset_layouts.md).
 - If MASt3R-SLAM import fails, ensure its vendored packages were installed from `third_party/MASt3R-SLAM/`.
 

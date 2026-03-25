@@ -329,6 +329,7 @@ def _build_keep_indices_for_leangate(
         build_kwargs = dict(
             device=str(device_str),
             enable_curope2d=bool(student_cfg.enable_curope2d),
+            flare_ckpt=str(checkpoint_path),
         )
         build_kwargs.update(_infer_leangate_build_kwargs(checkpoint_path))
 

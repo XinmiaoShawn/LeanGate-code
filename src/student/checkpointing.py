@@ -1,7 +1,7 @@
 """Checkpoint helpers for student models.
 
 We separate checkpoints into:
-- FLARE backbone checkpoints (e.g. geometry_pose.pth), loaded by FlareStudent via `flare_ckpt`.
+- Backbone initialization checkpoints (e.g. leangate.pt or geometry_pose.pth), loaded by FlareStudent via `flare_ckpt`.
 - Lightweight overlap checkpoints ("overlap checkpoint") that store only the overlap parts we train:
   the overlap `head` and (optionally trained) `trunk` (pose_head.trunk).
 """
@@ -114,4 +114,3 @@ def load_overlap_checkpoint(
         return report
 
     raise TypeError(f"Unsupported overlap checkpoint type: {type(ckpt)} ({ckpt_path})")
-

@@ -15,6 +15,57 @@ from .base import OverlapStudent, StudentBatch, StudentPred
 from .registry import register_student
 
 
+def _unwrap_checkpoint_state_dict(ckpt: object) -> dict[str, torch.Tensor]:
+    if isinstance(ckpt, dict):
+        for key in ("model", "state_dict", "model_state_dict"):
+            maybe_sd = ckpt.get(key)
+            if isinstance(maybe_sd, dict):
+                return maybe_sd
+        if all(isinstance(v, torch.Tensor) for v in ckpt.values()):
+            return ckpt
+    raise KeyError(
+        "Could not find a model state dict in checkpoint; "
+        "expected one of ['model', 'state_dict', 'model_state_dict'] or a flat tensor dict."
+    )
+
+
+def _extract_backbone_state_dict(ckpt: object) -> dict[str, torch.Tensor]:
+    state_dict = _unwrap_checkpoint_state_dict(ckpt)
+    state_dict = {
+        k[len("module."):] if k.startswith("module.") else k: v
+        for k, v in state_dict.items()
+    }
+
+    backbone_state_dict = {
+        k[len("backbone."):]: v
+        for k, v in state_dict.items()
+        if k.startswith("backbone.")
+    }
+    if backbone_state_dict:
+        return backbone_state_dict
+    return state_dict
+
+
+def _default_init_checkpoint_path() -> Path:
+    repo_root = Path(__file__).resolve().parents[2]
+    candidates = (
+        repo_root / "checkpoints" / "leangate.pt",
+        repo_root
+        / "checkpoints"
+        / "iterative"
+        / "flare_iter4_dec6_train_decoder_lr5e-5_img256_bs256x4_20ep"
+        / "overlap_iterativemodel_dec6_full.pt",
+    )
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    raise FileNotFoundError(
+        "No LeanGate initialization checkpoint found. "
+        f"Expected one of: {candidates[0]} or {candidates[1]}. "
+        "Pass `flare_ckpt` explicitly if your checkpoint lives elsewhere."
+    )
+
+
 def _warn_if_curope2d_unavailable() -> None:
     # Best-effort warning only: inference can still proceed via the slow PyTorch RoPE2D fallback.
     try:
@@ -270,23 +321,7 @@ def _load_flare_backbone(flare_ckpt: str, device: torch.device, *, enable_curope
         desc_conf_mode=("exp", 0, inf),
     )
 
-    # Try common keys for state dicts.
-    state_dict = None
-    if isinstance(ckpt, dict):
-        for key in ("model", "state_dict", "model_state_dict"):
-            maybe_sd = ckpt.get(key)
-            if isinstance(maybe_sd, dict):
-                state_dict = maybe_sd
-                break
-        if state_dict is None and all(isinstance(v, torch.Tensor) for v in ckpt.values()):
-            state_dict = ckpt
-
-    if state_dict is None:
-        raise KeyError(
-            "Could not find a model state dict in FLARE checkpoint; "
-            "expected one of ['model', 'state_dict', 'model_state_dict'] or a flat tensor dict."
-        )
-
+    state_dict = _extract_backbone_state_dict(ckpt)
     model.load_state_dict(state_dict, strict=False)
     model.to(device)
     model.eval()
@@ -368,13 +403,7 @@ class FlareStudent(OverlapStudent):
         _ensure_flare_path()
 
         if flare_ckpt is None:
-            flare_ckpt = str(
-                Path(__file__).resolve().parents[2]
-                / "third_party"
-                / "FLARE"
-                / "checkpoints"
-                / "geometry_pose.pth"
-            )
+            flare_ckpt = str(_default_init_checkpoint_path())
 
         # Load pretrained FLARE AsymmetricMASt3R model.
         self.backbone = _load_flare_backbone(flare_ckpt, device=self.device, enable_curope2d=enable_curope2d)

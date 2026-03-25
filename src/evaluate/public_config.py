@@ -28,9 +28,4 @@ LEGACY_LEANGATE_CHECKPOINT_PATH = (
 LEANGATE_HF_REPO = os.environ.get("LEANGATE_HF_REPO", "")
 LEANGATE_HF_FILENAME = os.environ.get("LEANGATE_HF_FILENAME", LEANGATE_CHECKPOINT_FILENAME)
 
-FLARE_GEOMETRY_CHECKPOINT_PATH = REPO_ROOT / "third_party" / "FLARE" / "checkpoints" / "geometry_pose.pth"
-FLARE_GEOMETRY_CHECKPOINT_URL = (
-    "https://huggingface.co/AntResearch/FLARE/resolve/main/geometry_pose.pth"
-)
-
 DEFAULT_PREDICTIONS_ROOT = REPO_ROOT / "outputs" / "predictions"
