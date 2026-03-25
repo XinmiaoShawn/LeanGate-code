@@ -1,14 +1,43 @@
-# Efficient-SLAM Public Project
+# LeanGate code release
 
 ## Goal
-This repository exposes the public inference path of our frame-selection pipeline:
+This repository exposes the inference path of LeanGate.
 
 1. download the released LeanGate checkpoint,
-2. run the student model on prepared `TUM`, `7SCENES`, or `EUROC` scenes,
+2. run LeanGate on prepared `TUM`, `7SCENES`, or `EUROC` scenes,
 3. export a sparse RGB manifest,
 4. optionally run MASt3R-SLAM on that sparse sequence.
 
-The repo is intentionally narrow. It is not a training codebase, a raw dataset preprocessor, or a general SLAM benchmark harness.
+## Demo
+![LeanGate demo](viz/demo.gif)
+
+## Contents
+- [Goal](#goal)
+- [Quick Start](#quick-start)
+- [What The User Gets](#what-the-user-gets)
+- [Supported Inputs](#supported-inputs)
+- [Public Workflow](#public-workflow)
+- [Outputs](#outputs)
+- [What Is Deliberately Out Of Scope](#what-is-deliberately-out-of-scope)
+- [Troubleshooting](#troubleshooting)
+- [Third-party components](#third-party-components)
+- [Repository Layout](#repository-layout)
+
+## Quick Start
+```bash
+pip install -e .
+pip install -e third_party/MASt3R-SLAM/thirdparty/mast3r
+pip install -e third_party/MASt3R-SLAM/thirdparty/in3d
+pip install --no-build-isolation -e third_party/MASt3R-SLAM
+
+python3 scripts/download_checkpoints.py --output-root checkpoints --repo-id ShawnX98/LeanGate
+
+python3 scripts/generate_rgb_lists.py \
+  --dataset-type TUM \
+  --dataset-root /data/tum \
+  --output-root outputs/predictions \
+  --device cuda:0
+```
 
 ## What The User Gets
 - A checkpoint download entrypoint: `scripts/download_checkpoints.py`
@@ -20,7 +49,7 @@ The intended public workflow is:
 
 ```text
 prepared scene directories
-    -> LeanGate student inference
+    -> LeanGate inference
     -> sparse rgb manifest
     -> staged sparse scene for MASt3R-SLAM
     -> trajectory / reconstruction outputs
@@ -48,7 +77,8 @@ pip install --no-build-isolation -e third_party/MASt3R-SLAM
 The public LeanGate checkpoint is hosted at:
 
 - Repo: `ShawnX98/LeanGate`
-- File: `https://huggingface.co/ShawnX98/LeanGate/blob/main/leangate.pt`
+- URL: `https://huggingface.co/ShawnX98/LeanGate`
+- File: `https://huggingface.co/ShawnX98/LeanGate/resolve/main/leangate.pt`
 
 Download it with:
 
@@ -68,8 +98,10 @@ Official FLARE source:
 
 Checkpoint notes:
 - The public LeanGate file is expected locally as `checkpoints/leangate.pt`.
+- `scripts/generate_rgb_lists.py` loads `leangate.pt` directly; the released setup does not require separate `iter` or `dec` flags.
 - FLARE's geometry checkpoint is not mirrored by this repo.
-- Vendored third-party code and checkpoints keep their upstream licenses and restrictions.
+- LeanGate uses FLARE pretrain weights, which follow FLARE's upstream terms.
+- MASt3R-SLAM code and any weights used with it follow MASt3R-SLAM's upstream terms.
 
 ### 3. Generate sparse RGB manifests
 ```bash
@@ -132,13 +164,15 @@ MASt3R-SLAM wrapper:
 - If scene discovery fails, the dataset layout likely does not match [docs/dataset_layouts.md](docs/dataset_layouts.md).
 - If MASt3R-SLAM import fails, ensure its vendored packages were installed from `third_party/MASt3R-SLAM/`.
 
+## Third-party components
+- LeanGate uses FLARE pretrain weights from `third_party/FLARE/`.
+- The optional SLAM stage uses MASt3R-SLAM from `third_party/MASt3R-SLAM/`.
+- Please refer to the corresponding upstream repositories and license files when using or redistributing these components.
+
 ## Repository Layout
 - `scripts/`: public CLI entrypoints
 - `src/evaluate/`: public workflow logic
-- `src/student/`: student-model loading and inference
+- `src/student/`: LeanGate model loading and inference
 - `src/slam_prefilter/`: compatibility utilities for RGB sequence loading
 - `third_party/FLARE/`: vendored FLARE dependency
 - `third_party/MASt3R-SLAM/`: vendored MASt3R-SLAM dependency
-
-## Licensing
-The root integration layer is Apache-2.0. Vendored projects in `third_party/` keep their original licenses and restrictions. Review those upstream license files before redistribution or commercial use.

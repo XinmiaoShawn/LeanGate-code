@@ -7,6 +7,7 @@ import os
 import re
 import sys
 import time
+import zipfile
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, List
@@ -27,7 +28,9 @@ _ensure_repo_imports()
 from evaluate.datasets import get_scenes, normalize_dataset_type, resolve_scene_root, safe_scene_id
 from evaluate.public_config import (
     DEFAULT_PREDICTIONS_ROOT,
+    LEANGATE_DECODER_DEPTH,
     LEANGATE_ENABLE_CUROPE2D,
+    LEANGATE_OVERLAP_ITERS,
     LEANGATE_POLICY_NAME,
     LEANGATE_THRESHOLD,
     LEANGATE_WARMUP_KEPT,
@@ -173,6 +176,24 @@ def _infer_checkpoint_int(raw: object, field_names: tuple[str, ...]) -> int | No
     return None
 
 
+def _infer_checkpoint_archive_int(checkpoint_path: Path, *, pattern: str) -> int | None:
+    try:
+        with zipfile.ZipFile(checkpoint_path) as archive:
+            names = archive.namelist()
+    except (FileNotFoundError, OSError, zipfile.BadZipFile):
+        return None
+
+    roots = []
+    for name in names:
+        if "/" in name:
+            roots.append(name.split("/", 1)[0])
+    for root in roots:
+        match = re.search(pattern, root)
+        if match is not None:
+            return int(match.group(1))
+    return None
+
+
 def _infer_leangate_build_kwargs(checkpoint_path: Path) -> dict[str, Any]:
     import torch
 
@@ -188,15 +209,20 @@ def _infer_leangate_build_kwargs(checkpoint_path: Path) -> dict[str, Any]:
             build_kwargs["overlap_dim"] = int(weight.shape[1])
         overlap_iters = _infer_checkpoint_int(raw, ("overlap_iters", "num_iters"))
         if overlap_iters is None:
+            overlap_iters = _infer_checkpoint_archive_int(checkpoint_path, pattern=r"iter(\d+)")
+        if overlap_iters is None:
             match = re.search(r"iter(\d+)", checkpoint_path.as_posix())
             if match is not None:
                 overlap_iters = int(match.group(1))
-        if overlap_iters is not None:
-            build_kwargs["overlap_iters"] = int(overlap_iters)
+        if overlap_iters is None:
+            overlap_iters = int(LEANGATE_OVERLAP_ITERS)
+        build_kwargs["overlap_iters"] = int(overlap_iters)
     else:
         build_kwargs["overlap_head_type"] = 1
 
     decoder_depth = _infer_checkpoint_int(raw, ("decoder_depth",))
+    if decoder_depth is None:
+        decoder_depth = _infer_checkpoint_archive_int(checkpoint_path, pattern=r"dec(\d+)")
     if decoder_depth is None:
         decoder_indices: list[int] = []
         for key in state_dict.keys():
@@ -205,6 +231,8 @@ def _infer_leangate_build_kwargs(checkpoint_path: Path) -> dict[str, Any]:
                 decoder_indices.append(int(match.group(1)))
         if decoder_indices:
             decoder_depth = max(decoder_indices) + 1
+    if decoder_depth is None and build_kwargs.get("overlap_head_type") == 2:
+        decoder_depth = int(LEANGATE_DECODER_DEPTH)
     if decoder_depth is not None:
         build_kwargs["decoder_depth"] = int(decoder_depth)
 
