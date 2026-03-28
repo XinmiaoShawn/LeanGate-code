@@ -37,11 +37,14 @@ python3 scripts/generate_rgb_lists.py \
   --dataset-root /data/tum \
   --output-root outputs/predictions \
   --device cuda:0
+
+./demo.sh --folder /data/my_rgb_frames --device cuda:0
 ```
 
 ## What The User Gets
 - A checkpoint download entrypoint: `scripts/download_checkpoints.py`
 - A sparse RGB export entrypoint: `scripts/generate_rgb_lists.py`
+- A plain-RGB-folder demo wrapper: `demo.sh`
 - A single-scene MASt3R-SLAM wrapper: `scripts/run_slam_scene.py`
 - A dataset-level MASt3R-SLAM wrapper: `scripts/run_slam_dataset.py`
 
@@ -60,7 +63,7 @@ prepared scene directories
 - `7SCENES`
 - `EUROC`
 
-Only prepared layouts are supported. The exact expected structures are documented in [docs/dataset_layouts.md](docs/dataset_layouts.md).
+The benchmark CLIs support only prepared layouts. The exact expected structures are documented in [docs/dataset_layouts.md](docs/dataset_layouts.md). For a plain image directory, use `demo.sh --folder ...`.
 
 ## Public Workflow
 ### 1. Install
@@ -103,6 +106,17 @@ python3 scripts/generate_rgb_lists.py \
 
 Each scene produces a manifest containing the kept RGB frames in original scene-relative paths and timestamp order.
 
+For a plain RGB folder demo without dataset manifests:
+
+```bash
+./demo.sh \
+  --folder /data/my_rgb_frames \
+  --output-root outputs/demo \
+  --device cuda:0
+```
+
+This processes images in sorted filename order and writes the filtered list to `outputs/demo/leangate/<folder_name>.txt`.
+
 ### 4. Launch MASt3R-SLAM on the sparse sequence
 Single scene:
 
@@ -131,7 +145,6 @@ The wrapper materializes a sparse scene under `outputs/mast3r_sparse_inputs/`, g
 Sparse RGB generation:
 - `outputs/predictions/<dataset_slug>/leangate/<scene>.txt`
 - `outputs/predictions/<dataset_slug>/leangate/scores/<scene>_scores.csv`
-- `outputs/predictions/<dataset_slug>/leangate/timings/<scene>.json`
 
 MASt3R-SLAM wrapper:
 - `outputs/slam/<dataset_slug>/leangate/<scene>/trajectory_keyframes.tum`

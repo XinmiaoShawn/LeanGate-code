@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 import argparse
-import json
 import multiprocessing as mp
 import os
 import re
 import sys
-import time
 import zipfile
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, List
 
@@ -37,25 +35,6 @@ from evaluate.public_config import (
     LEGACY_LEANGATE_CHECKPOINT_PATH,
     PUBLIC_LEANGATE_CHECKPOINT_PATH,
 )
-
-@dataclass
-class TimingStats:
-    """Per-stream timing statistics (IO/model-load excluded from inference_ms)."""
-
-    inference_ms: float = 0.0
-    inference_count: int = 0
-    setup_ms: float = 0.0
-    io_ms: float = 0.0
-    model_load_ms: float = 0.0
-    timing_start_frame: int = 2
-
-
-def _write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = path.with_suffix(path.suffix + ".tmp")
-    tmp_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    tmp_path.replace(path)
-
 
 class SubsampledSequenceView:
     """Wrapper that presents a subsampled view of a SceneFrameSequence.
@@ -260,53 +239,20 @@ def _build_keep_indices_for_leangate(
     sequence: SceneFrameSequence,
     device: str,
     score_log_path: Path | None = None,
-    timing_log_path: Path | None = None,
-    timing_start_frame: int = 2,
     input_subsample: int = 1,
     student_cfg: StudentScoreConfig | None = None,
-) -> tuple[List[int], TimingStats | None]:
+) -> List[int]:
     """Build keep indices for the public LeanGate policy.
     
     Args:
         input_subsample: If > 1, creates a subsampled view of the sequence before
                         applying the policy.
-    
-    Returns:
-        (keep_indices, timing_stats) where keep_indices are in the ORIGINAL sequence
-        coordinates and timing_stats is written to `timing_log_path` when provided.
     """
     import torch
 
-    timing_start_frame = int(timing_start_frame)
-    if timing_start_frame < 1:
-        raise ValueError(f"timing_start_frame must be >= 1, got {timing_start_frame}")
-    start_count_idx = timing_start_frame - 1  # 0-based frame index
-
-    def _maybe_write_timing(stats: TimingStats | None, *, extra: dict[str, Any] | None = None) -> None:
-        if timing_log_path is None or stats is None:
-            return
-        payload: dict[str, Any] = {
-            "policy": LEANGATE_POLICY_NAME,
-            "policy_type": "student",
-            "device": str(device),
-            "input_subsample": int(input_subsample),
-            "scene_id": str(getattr(sequence, "scene_id", "")),
-            **asdict(stats),
-        }
-        if extra:
-            payload.update(extra)
-        _write_json_atomic(timing_log_path, payload)
-
-    def _is_cuda_device(device_str: str) -> bool:
-        return str(device_str).startswith("cuda") and torch.cuda.is_available()
-
-    def _cuda_sync(device_str: str) -> None:
-        if _is_cuda_device(device_str):
-            torch.cuda.synchronize(torch.device(device_str))
-
     def _get_student_for_device(device_str: str) -> torch.nn.Module:
         # Local import keeps startup lighter for metadata-only operations.
-        from student import build_student, load_overlap_checkpoint
+        from student import build_student
 
         cache = getattr(_get_student_for_device, "_cache", None)
         if cache is None:
@@ -368,13 +314,9 @@ def _build_keep_indices_for_leangate(
     def _select_frames_student_cached(
         base_sequence: SceneFrameSequence,
         idx_map: list[int],
-    ) -> tuple[List[int], TimingStats]:
-        """Student selection with optional FLARE ref-feature caching + per-stream timing."""
-        stats = TimingStats(timing_start_frame=timing_start_frame)
-
-        t0 = time.perf_counter()
+    ) -> List[int]:
+        """Student selection with optional FLARE ref-feature caching."""
         model = _get_student_for_device(device)
-        stats.model_load_ms = (time.perf_counter() - t0) * 1000.0
 
         base_model = model.module if hasattr(model, "module") else model
         supports_frame_cache = all(
@@ -383,7 +325,7 @@ def _build_keep_indices_for_leangate(
 
         total = len(idx_map)
         if total == 0:
-            return [], stats
+            return []
 
         kept: List[int] = [0]
         last_keep = 0
@@ -391,37 +333,21 @@ def _build_keep_indices_for_leangate(
         tau_keep = float(student_cfg.threshold) if student_cfg is not None else 0.0
 
         if supports_frame_cache:
-            # Initialize ref frame (index 0) and pre-encode outside timed region.
-            io_t0 = time.perf_counter()
             ref_img = base_sequence.load(int(idx_map[0]), augment=False).image_256
             ref_frame = base_model.create_frame(ref_img)
-            stats.io_ms += (time.perf_counter() - io_t0) * 1000.0
 
-            setup_t0 = time.perf_counter()
             base_model.encode_frame(ref_frame)
-            _cuda_sync(str(device))
-            stats.setup_ms += (time.perf_counter() - setup_t0) * 1000.0
 
             for curr in range(1, total):
                 key_idx = last_keep
-                io_t0 = time.perf_counter()
                 cur_img = base_sequence.load(int(idx_map[curr]), augment=False).image_256
                 cur_frame = base_model.create_frame(cur_img)
-                stats.io_ms += (time.perf_counter() - io_t0) * 1000.0
 
-                _cuda_sync(str(device))
-                inf_t0 = time.perf_counter()
                 pred = base_model.forward_frames(ref_frame, cur_frame)
-                _cuda_sync(str(device))
-                inf_ms = (time.perf_counter() - inf_t0) * 1000.0
 
                 if pred.overlap_score is None:
                     raise RuntimeError("Student model did not produce overlap_score")
                 score = float(pred.overlap_score.squeeze().item())
-
-                if curr >= start_count_idx:
-                    stats.inference_ms += inf_ms
-                    stats.inference_count += 1
 
                 if student_cfg is not None and len(kept) < int(student_cfg.warmup_kept):
                     keep_flag = True
@@ -435,28 +361,16 @@ def _build_keep_indices_for_leangate(
                     log_rows.append((curr, key_idx, float(score), tau_keep, keep_flag))
 
         else:
-            # Fallback: no encoder caching, but still exclude IO by loading tensors outside timing.
-            io_t0 = time.perf_counter()
+            # Fallback: no encoder caching.
             ref_img = base_sequence.load(int(idx_map[0]), augment=False).image_256
-            stats.io_ms += (time.perf_counter() - io_t0) * 1000.0
             ref = ref_img.unsqueeze(0).to(device)
 
             for curr in range(1, total):
                 key_idx = last_keep
-                io_t0 = time.perf_counter()
                 cur_img = base_sequence.load(int(idx_map[curr]), augment=False).image_256
-                stats.io_ms += (time.perf_counter() - io_t0) * 1000.0
                 cur = cur_img.unsqueeze(0).to(device)
 
-                _cuda_sync(str(device))
-                inf_t0 = time.perf_counter()
                 score = _student_score_from_tensors(model, ref=ref, cur=cur)
-                _cuda_sync(str(device))
-                inf_ms = (time.perf_counter() - inf_t0) * 1000.0
-
-                if curr >= start_count_idx:
-                    stats.inference_ms += inf_ms
-                    stats.inference_count += 1
 
                 if student_cfg is not None and len(kept) < int(student_cfg.warmup_kept):
                     keep_flag = True
@@ -478,29 +392,21 @@ def _build_keep_indices_for_leangate(
                         f"{int(frame_idx)},{int(key_idx)},{float(score):.6f},{float(tau_keep):.6f},{int(keep_flag)}\n"
                     )
 
-        return kept, stats
+        return kept
 
     if input_subsample > 1:
         view = SubsampledSequenceView(sequence, input_subsample)
-        kept_virtual, stats = _select_frames_student_cached(
+        kept_virtual = _select_frames_student_cached(
             base_sequence=sequence,
             idx_map=list(view.real_indices),
         )
-        _maybe_write_timing(
-            stats,
-            extra={"student_model": str(student_cfg.student_model) if student_cfg is not None else ""},
-        )
-        return view.get_mapped_indices(kept_virtual), stats
+        return view.get_mapped_indices(kept_virtual)
 
-    kept, stats = _select_frames_student_cached(
+    kept = _select_frames_student_cached(
         base_sequence=sequence,
         idx_map=list(range(len(sequence))),
     )
-    _maybe_write_timing(
-        stats,
-        extra={"student_model": str(student_cfg.student_model) if student_cfg is not None else ""},
-    )
-    return kept, stats
+    return kept
 
 
 def _write_manifest(
@@ -597,8 +503,6 @@ def _generate_for_scene(
     scene_root: Path,
     output_root: Path,
     device: str,
-    timing_root: Path | None = None,
-    timing_start_frame: int = 2,
     input_subsample: int = 1,
     canonical_root: Path | None = None,
     student_cfg: StudentScoreConfig | None = None,
@@ -623,20 +527,10 @@ def _generate_for_scene(
         / "scores"
         / f"{scene_safe}_scores.csv"
     )
-    timing_base = output_root if timing_root is None else timing_root
-    timing_log_path = (
-        timing_base
-        / dataset_slug
-        / LEANGATE_POLICY_NAME
-        / "timings"
-        / f"{scene_safe}.json"
-    )
-    keep_indices, _timing = _build_keep_indices_for_leangate(
+    keep_indices = _build_keep_indices_for_leangate(
         sequence=sequence,
         device=device,
         score_log_path=score_log_path,
-        timing_log_path=timing_log_path,
-        timing_start_frame=int(timing_start_frame),
         input_subsample=input_subsample,
         student_cfg=student_cfg,
     )
@@ -655,8 +549,6 @@ def _worker_process(
     dataset_slug: str,
     device: str,
     output_root: Path,
-    timing_root: Path | None = None,
-    timing_start_frame: int = 2,
     input_subsample: int = 1,
     canonical_root: Path | None = None,
     student_cfg: StudentScoreConfig | None = None,
@@ -692,20 +584,10 @@ def _worker_process(
                 / "scores"
                 / f"{scene_safe}_scores.csv"
             )
-            timing_base = output_root if timing_root is None else timing_root
-            timing_log_path = (
-                timing_base
-                / dataset_slug
-                / LEANGATE_POLICY_NAME
-                / "timings"
-                / f"{scene_safe}.json"
-            )
-            keep_indices, _timing = _build_keep_indices_for_leangate(
+            keep_indices = _build_keep_indices_for_leangate(
                 sequence=sequence,
                 device=device,
                 score_log_path=score_log_path,
-                timing_log_path=timing_log_path,
-                timing_start_frame=int(timing_start_frame),
                 input_subsample=input_subsample,
                 student_cfg=student_cfg,
             )
@@ -725,8 +607,6 @@ def _run_parallel_generation(
     dataset_type: str,
     dataset_slug: str,
     output_root: Path,
-    timing_root: Path | None,
-    timing_start_frame: int,
     devices: list[str],
     input_subsample: int = 1,
     canonical_root: Path | None = None,
@@ -751,8 +631,6 @@ def _run_parallel_generation(
                     dataset_slug,
                     device,
                     output_root,
-                    timing_root,
-                    int(timing_start_frame),
                     input_subsample,
                     canonical_root,
                     student_cfg,
@@ -788,21 +666,6 @@ def _parse_args() -> argparse.Namespace:
         type=Path,
         default=DEFAULT_PREDICTIONS_ROOT,
         help="Root directory to store generated manifests.",
-    )
-    parser.add_argument(
-        "--timing-root",
-        type=Path,
-        default=None,
-        help=(
-            "Optional root directory to store per-scene timing JSON files. "
-            "Default writes to <output-root>/<dataset_slug>/leangate/timings/<scene>.json."
-        ),
-    )
-    parser.add_argument(
-        "--timing-start-frame",
-        type=int,
-        default=2,
-        help="1-based frame index to start counting inference time (e.g., 2 excludes reference init).",
     )
     parser.add_argument(
         "--max-scenes",
@@ -848,8 +711,6 @@ def _main() -> None:
     dataset_type, dataset_slug = normalize_dataset_type(args.dataset_type)
     dataset_root: Path = args.dataset_root
     output_root: Path = args.output_root
-    timing_root: Path | None = args.timing_root
-    timing_start_frame: int = int(args.timing_start_frame)
     canonical_root: Path | None = args.canonical_root
     device: str = args.device
     gpu_devices = _parse_gpus_arg(args.gpus)
@@ -870,8 +731,6 @@ def _main() -> None:
             dataset_type=dataset_type,
             dataset_slug=dataset_slug,
             output_root=output_root,
-            timing_root=timing_root,
-            timing_start_frame=timing_start_frame,
             devices=gpu_devices,
             input_subsample=args.input_subsample,
             canonical_root=canonical_root,
@@ -886,8 +745,6 @@ def _main() -> None:
                 scene_root=scene_root,
                 output_root=output_root,
                 device=device,
-                timing_root=timing_root,
-                timing_start_frame=timing_start_frame,
                 input_subsample=args.input_subsample,
                 canonical_root=canonical_root,
                 student_cfg=student_cfg,

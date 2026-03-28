@@ -190,20 +190,31 @@ def _discover_frame_paths(scene_root: Path) -> List[Path]:
                 f"No RGB directory found under {scene_root} "
                 "(expected 'rgb_resize', 'rgb', or 'resized_images')"
             )
-    candidates = [
-        path
-        for path in sorted(search_dir.iterdir())
-        if path.suffix.lower() in IMAGE_EXTENSIONS and path.is_file()
-    ]
+    candidates = _discover_images_in_dir(search_dir)
     if not candidates:
         raise RuntimeError(f"No RGB frames found under {search_dir}")
     return candidates
 
 
+def _discover_images_in_dir(search_dir: Path) -> List[Path]:
+    """Discover image files directly inside a directory in sorted filename order."""
+    return [
+        path
+        for path in sorted(search_dir.iterdir())
+        if path.suffix.lower() in IMAGE_EXTENSIONS and path.is_file()
+    ]
+
+
 class RgbFrameSequence:
     """RGB-only frame sequence with fixed-size decision images."""
 
-    def __init__(self, scene_root: Path, *, decision_img_size: int = 256) -> None:
+    def __init__(
+        self,
+        scene_root: Path,
+        *,
+        decision_img_size: int = 256,
+        direct_rgb_dir: bool = False,
+    ) -> None:
         scene_root = Path(scene_root)
         if not scene_root.exists():
             raise FileNotFoundError(f"Scene root {scene_root} missing")
@@ -211,12 +222,16 @@ class RgbFrameSequence:
             raise ValueError(f"decision_img_size must be positive, got {decision_img_size}")
         self.decision_img_size = int(decision_img_size)
 
-        rgb_manifest = _load_rgb_manifest(scene_root)
-        if rgb_manifest is not None:
-            rgb_paths, rgb_timestamps = rgb_manifest
-        else:
-            rgb_paths = _discover_frame_paths(scene_root)
+        if direct_rgb_dir:
+            rgb_paths = _discover_images_in_dir(scene_root)
             rgb_timestamps = [None] * len(rgb_paths)
+        else:
+            rgb_manifest = _load_rgb_manifest(scene_root)
+            if rgb_manifest is not None:
+                rgb_paths, rgb_timestamps = rgb_manifest
+            else:
+                rgb_paths = _discover_frame_paths(scene_root)
+                rgb_timestamps = [None] * len(rgb_paths)
 
         if not rgb_paths:
             raise RuntimeError(f"No RGB frames discovered under {scene_root}")
@@ -264,6 +279,17 @@ class RgbFrameSequence:
     ) -> tuple["RgbFrameSequence", FrameMeta]:
         """Factory mirroring the legacy SceneFrameSequence.from_scene_root API."""
         sequence = cls(scene_root, decision_img_size=decision_img_size)
+        return sequence, sequence.meta
+
+    @classmethod
+    def from_rgb_folder(
+        cls,
+        rgb_folder: Path,
+        *,
+        decision_img_size: int = 256,
+    ) -> tuple["RgbFrameSequence", FrameMeta]:
+        """Create a sequence directly from a plain RGB image folder."""
+        sequence = cls(rgb_folder, decision_img_size=decision_img_size, direct_rgb_dir=True)
         return sequence, sequence.meta
 
     def __len__(self) -> int:
