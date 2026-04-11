@@ -1,0 +1,11 @@
+# Install PyTorch, torchvision, and pytorch3d separately so they match your
+# CUDA/runtime environment. The remaining Python dependencies for the public
+# LeanGate inference workflow are listed here.
+numpy>=1.24
+pyyaml>=6
+huggingface_hub>=0.22
+tqdm>=4.65
+scipy>=1.10
+opencv-python-headless>=4.8
+packaging>=23
+einops>=0.7

@@ -1,0 +1,6 @@
+[submodule "third_party/FLARE"]
+	path = third_party/FLARE
+	url = https://github.com/ant-research/FLARE.git
+[submodule "third_party/MASt3R-SLAM"]
+	path = third_party/MASt3R-SLAM
+	url = https://github.com/rmurai0610/MASt3R-SLAM.git
