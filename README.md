@@ -1,11 +1,14 @@
 # LeanGate code release
 
-<p align="center">
-  <a href="https://arxiv.org/abs/2604.08718"><img src="https://img.shields.io/badge/Paper-arXiv-b31b1b.svg"></a> &nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://lean-gate.github.io/"><img src="https://img.shields.io/badge/Project-Site-Green"></a> &nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://huggingface.co/ShawnX98/LeanGate/resolve/main/leangate.pt"><img src="https://img.shields.io/badge/Checkpoint-HF-yellow"></a> &nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="./LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg"></a>
-</p>
+<div align="center">
+  <p>
+    <a href="https://arxiv.org/abs/2604.08718"><img src="https://img.shields.io/badge/Paper-arXiv-b31b1b.svg"></a> &nbsp;&nbsp;&nbsp;&nbsp;
+    <a href="https://lean-gate.github.io/"><img src="https://img.shields.io/badge/Project-Site-Green"></a> &nbsp;&nbsp;&nbsp;&nbsp;
+    <a href="https://huggingface.co/ShawnX98/LeanGate/resolve/main/leangate.pt"><img src="https://img.shields.io/badge/Checkpoint-HF-yellow"></a> &nbsp;&nbsp;&nbsp;&nbsp;
+    <a href="./LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg"></a>
+  </p>
+  <img src="viz/teaser.png" alt="LeanGate teaser" width="92%">
+</div>
 
 ## Goal
 This repository exposes the inference path of LeanGate.
@@ -27,20 +30,25 @@ cd slam_public
 git submodule update --init --recursive
 ```
 
-## Demo
-![LeanGate demo](viz/demo.gif)
-
 ## Contents
-- [Goal](#goal)
-- [Quick Start](#quick-start)
-- [What The User Gets](#what-the-user-gets)
-- [Supported Inputs](#supported-inputs)
-- [Public Workflow](#public-workflow)
-- [Outputs](#outputs)
-- [What Is Deliberately Out Of Scope](#what-is-deliberately-out-of-scope)
-- [Troubleshooting](#troubleshooting)
-- [Third-party components](#third-party-components)
-- [Repository Layout](#repository-layout)
+- [LeanGate code release](#leangate-code-release)
+  - [Goal](#goal)
+  - [Clone](#clone)
+  - [Contents](#contents)
+  - [Quick Start](#quick-start)
+  - [What The User Gets](#what-the-user-gets)
+  - [Supported Inputs](#supported-inputs)
+  - [Public Workflow](#public-workflow)
+    - [1. Install](#1-install)
+    - [2. Prepare checkpoints](#2-prepare-checkpoints)
+    - [3. Generate sparse RGB manifests](#3-generate-sparse-rgb-manifests)
+    - [4. Launch MASt3R-SLAM on the sparse sequence](#4-launch-mast3r-slam-on-the-sparse-sequence)
+  - [Outputs](#outputs)
+  - [Demo](#demo)
+  - [What Is Deliberately Out Of Scope](#what-is-deliberately-out-of-scope)
+  - [Troubleshooting](#troubleshooting)
+  - [Third-party components](#third-party-components)
+  - [Repository Layout](#repository-layout)
 
 ## Quick Start
 ```bash
@@ -186,6 +194,9 @@ MASt3R-SLAM wrapper:
 - `outputs/slam/<dataset_slug>/leangate/<scene>/run_metadata.json`
 - `outputs/slam/<dataset_slug>/leangate/summary.csv`
 - `outputs/slam/<dataset_slug>/leangate/summary.json`
+
+## Demo
+![LeanGate demo](viz/demo.gif)
 
 ## What Is Deliberately Out Of Scope
 - training code
