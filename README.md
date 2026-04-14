@@ -1,5 +1,12 @@
 # LeanGate code release
 
+<p align="center">
+  <a href="https://arxiv.org/abs/2604.08718"><img src="https://img.shields.io/badge/Paper-arXiv-b31b1b.svg"></a> &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://lean-gate.github.io/"><img src="https://img.shields.io/badge/Project-Site-Green"></a> &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://huggingface.co/ShawnX98/LeanGate/resolve/main/leangate.pt"><img src="https://img.shields.io/badge/Checkpoint-HF-yellow"></a> &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg"></a>
+</p>
+
 ## Goal
 This repository exposes the inference path of LeanGate.
 
