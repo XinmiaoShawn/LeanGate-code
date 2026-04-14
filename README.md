@@ -2,15 +2,52 @@
 
 <div align="center">
   <p>
+    <a href="https://arxiv.org/search/cs?searchtype=author&query=Xiong%2C+X">Xinmiao Xiong</a><sup>1*</sup>,
+    <a href="https://arxiv.org/search/cs?searchtype=author&query=Liu%2C+B">Bangya Liu</a><sup>1*</sup>,
+    <a href="https://arxiv.org/search/cs?searchtype=author&query=Wang%2C+H">Hao Wang</a><sup>2</sup>,
+    <a href="https://arxiv.org/search/cs?searchtype=author&query=Li%2C+D">Dayou Li</a><sup>2</sup>,
+    <a href="https://arxiv.org/search/cs?searchtype=author&query=Chen%2C+N">Nuo Chen</a><sup>2</sup>,
+    <br>
+    <a href="https://arxiv.org/search/cs?searchtype=author&query=Feng%2C+A">Andrew Feng</a><sup>3</sup>,
+    <a href="https://arxiv.org/search/cs?searchtype=author&query=Ding%2C+M">Mingyu Ding</a><sup>4</sup>,
+    <a href="https://arxiv.org/search/cs?searchtype=author&query=Banerjee%2C+S">Suman Banerjee</a><sup>1</sup>,
+    <a href="https://arxiv.org/search/cs?searchtype=author&query=Zhou%2C+Y">Yang Zhou</a><sup>2</sup>,
+    <a href="https://arxiv.org/search/cs?searchtype=author&query=Fan%2C+Z">Zhiwen Fan</a><sup>2&dagger;</sup>
+    <br>
+    <sup>1</sup>UW&ndash;Madison &nbsp;&nbsp;
+    <sup>2</sup>Texas A&amp;M &nbsp;&nbsp;
+    <sup>3</sup>USC &nbsp;&nbsp;
+    <sup>4</sup>UNC Chapel Hill
+    <br>
+    <sup>*</sup>Equal contribution. &nbsp;&nbsp;
+    <sup>&dagger;</sup>Corresponding author: zhiwenfan@tamu.edu.
+  </p>
+  <p>
     <a href="https://arxiv.org/abs/2604.08718"><img src="https://img.shields.io/badge/Paper-arXiv-b31b1b.svg"></a> &nbsp;&nbsp;&nbsp;&nbsp;
     <a href="https://lean-gate.github.io/"><img src="https://img.shields.io/badge/Project-Site-Green"></a> &nbsp;&nbsp;&nbsp;&nbsp;
     <a href="https://huggingface.co/ShawnX98/LeanGate/resolve/main/leangate.pt"><img src="https://img.shields.io/badge/Checkpoint-HF-yellow"></a> &nbsp;&nbsp;&nbsp;&nbsp;
     <a href="./LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg"></a>
   </p>
-  <img src="viz/teaser.png" alt="LeanGate teaser" width="92%">
 </div>
 
-## Goal
+## Overview
+<p align="center">
+  <img src="viz/teaser.png" alt="LeanGate teaser" width="92%">
+</p>
+
+LeanGate is a framework for accelerating transformer-based monocular SLAM via geometric utility scoring. It bypasses over 90% of input frames in dense streaming while preserving the fidelity of mapping, tracking, and camera pose estimation.
+
+### Key Contributions
+- We identify late rejection as the main bottleneck in GFM-based monocular SLAM, where dense streams spend most compute on temporally redundant frames.
+- We introduce a pairwise geometric utility score and a lightweight feed-forward gating network that predicts frame value before expensive geometric decoding.
+- We show across multiple SLAM benchmarks that LeanGate improves end-to-end throughput by 5x and reduces tracking FLOPs by over 85% without compromising tracking accuracy.
+
+### System Pipeline
+<p align="center">
+  <img src="viz/system.png" alt="LeanGate system pipeline" width="92%">
+</p>
+
+## Release Scope
 This repository exposes the inference path of LeanGate.
 
 1. download the released LeanGate checkpoint,
@@ -32,7 +69,10 @@ git submodule update --init --recursive
 
 ## Contents
 - [LeanGate code release](#leangate-code-release)
-  - [Goal](#goal)
+  - [Overview](#overview)
+    - [Key Contributions](#key-contributions)
+    - [System Pipeline](#system-pipeline)
+  - [Release Scope](#release-scope)
   - [Clone](#clone)
   - [Contents](#contents)
   - [Quick Start](#quick-start)
@@ -45,7 +85,6 @@ git submodule update --init --recursive
     - [4. Launch MASt3R-SLAM on the sparse sequence](#4-launch-mast3r-slam-on-the-sparse-sequence)
   - [Outputs](#outputs)
   - [Demo](#demo)
-  - [What Is Deliberately Out Of Scope](#what-is-deliberately-out-of-scope)
   - [Troubleshooting](#troubleshooting)
   - [Third-party components](#third-party-components)
   - [Repository Layout](#repository-layout)
@@ -197,13 +236,6 @@ MASt3R-SLAM wrapper:
 
 ## Demo
 ![LeanGate demo](viz/demo.gif)
-
-## What Is Deliberately Out Of Scope
-- training code
-- teacher labeling pipelines
-- reinforcement learning / wandb pipelines
-- raw dataset download and preprocessing
-- support for datasets outside the three public benchmarks above
 
 ## Troubleshooting
 - If `leangate.pt` is missing, run `python3 scripts/download_checkpoints.py --output-root checkpoints`.
